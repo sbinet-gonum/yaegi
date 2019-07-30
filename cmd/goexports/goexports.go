@@ -23,6 +23,7 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
+	"go/build"
 	"go/constant"
 	"go/format"
 	"go/importer"
@@ -31,7 +32,6 @@ import (
 	"log"
 	"os"
 	"path"
-	"runtime"
 	"strconv"
 	"strings"
 	"text/template"
@@ -194,23 +194,16 @@ func genContent(dest, pkgName, license string) ([]byte, error) {
 		}
 	}
 
-	var buildTags string
-	if runtime.Version() != "devel" {
-		parts := strings.Split(runtime.Version(), ".")
-
-		minorRaw := getMinor(parts[1])
-
-		currentGoVersion := parts[0] + "." + minorRaw
-
-		minor, errParse := strconv.Atoi(minorRaw)
-		if errParse != nil {
-			return nil, fmt.Errorf("failed to parse version: %v", errParse)
-		}
-
-		nextGoVersion := parts[0] + "." + strconv.Itoa(minor+1)
-
-		buildTags = currentGoVersion + ",!" + nextGoVersion
+	parts := strings.Split(goVersion(), ".")
+	currentGoVersion := parts[0] + "." + parts[1]
+	minor, errParse := strconv.Atoi(parts[1])
+	if errParse != nil {
+		return nil, fmt.Errorf("failed to parse version: %v", errParse)
 	}
+
+	nextGoVersion := parts[0] + "." + strconv.Itoa(minor+1)
+
+	buildTags := currentGoVersion + ",!" + nextGoVersion
 
 	base := template.New("goexports")
 	parse, err := base.Parse(model)
@@ -334,13 +327,7 @@ func main() {
 			oFile = strings.Replace(pkg, "/", "_", -1) + ".go"
 		}
 
-		prefix := runtime.Version()
-		if runtime.Version() != "devel" {
-			parts := strings.Split(runtime.Version(), ".")
-
-			prefix = parts[0] + "_" + getMinor(parts[1])
-		}
-
+		prefix := strings.Replace(goVersion(), ".", "_", -1)
 		err = ioutil.WriteFile(prefix+"_"+oFile, content, 0666)
 		if err != nil {
 			log.Fatal(err)
@@ -348,15 +335,8 @@ func main() {
 	}
 }
 
-func getMinor(part string) string {
-	minor := part
-	index := strings.Index(minor, "beta")
-	if index < 0 {
-		index = strings.Index(minor, "rc")
-	}
-	if index > 0 {
-		minor = minor[:index]
-	}
-
-	return minor
+func goVersion() string {
+	rtags := build.Default.ReleaseTags
+	version := rtags[len(rtags)-1]
+	return version
 }

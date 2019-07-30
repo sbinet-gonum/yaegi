@@ -1,6 +1,7 @@
 package interp
 
 import (
+	"go/build"
 	"go/parser"
 	"path"
 	"runtime"
@@ -87,7 +88,9 @@ func buildTagOk(s string) (r bool) {
 
 // goNumVersion returns the go minor version number
 func goNumVersion() int {
-	v := strings.Split(runtime.Version(), ".")
+	rtags := build.Default.ReleaseTags
+	version := rtags[len(rtags)-1]
+	v := strings.Split(version, ".")
 	n, _ := strconv.Atoi(v[1])
 	return n
 }
